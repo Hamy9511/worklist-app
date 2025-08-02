@@ -5,14 +5,14 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Calendar, Search, FileText, Download } from "lucide-react"
+import { Search, FileText, Download } from "lucide-react"
 
 interface PatientStudy {
   id: string;
   name: string;
   age: number;
   study: string;
-  studyDate: string;
+  studyDate: string; // Formato DD/MM/YYYY
   AccessionNumber: string;
   orthancStudyId?: string;
 }
@@ -37,7 +37,19 @@ export default function RadiologyPatients() {
           return
         }
 
-        setPatients(data)
+        // Obtener fecha actual en formato DD/MM/YYYY
+        const today = new Date()
+        const day = String(today.getDate()).padStart(2, '0')
+        const month = String(today.getMonth() + 1).padStart(2, '0')
+        const year = today.getFullYear()
+        const todayFormatted = `${day}/${month}/${year}`
+
+        // Filtrar solo estudios de hoy (comparando con DD/MM/YYYY)
+        const todayStudies = data.filter((patient: PatientStudy) => 
+          patient.studyDate === todayFormatted
+        )
+
+        setPatients(todayStudies)
       } catch (err) {
         setError("Error al conectar con el servidor")
         console.error("fetchPatients error:", err)
@@ -80,11 +92,6 @@ export default function RadiologyPatients() {
       setDownloading(null)
     }
   }
-  function formatPatientName(dicomName: string): string {
-  if (!dicomName) return '';
-  const [lastName, firstName, middleName] = dicomName.split('^');
-  return [firstName, middleName, lastName].filter(Boolean).join(' ');
-}
 
   const filteredPatients = patients.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -92,6 +99,17 @@ export default function RadiologyPatients() {
     p.study.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.AccessionNumber.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Función para formatear la fecha de hoy en español
+  const formatTodayDate = () => {
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    }
+    return new Date().toLocaleDateString('es-ES', options)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -101,12 +119,12 @@ export default function RadiologyPatients() {
             <FileText className="h-8 w-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900">Lista de Trabajo - Radiología</h1>
           </div>
-          <p className="text-gray-600">Lista de estudios radiológicos desde Orthanc PACS</p>
+          <p className="text-gray-600">Estudios radiológicos del {formatTodayDate()}</p>
         </div>
 
         <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -115,12 +133,6 @@ export default function RadiologyPatients() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Hoy
-                </Button>
               </div>
             </div>
           </CardContent>
@@ -132,48 +144,48 @@ export default function RadiologyPatients() {
               <div className="text-center py-8 text-gray-500">Cargando estudios...</div>
             ) : error ? (
               <div className="text-center py-8 text-red-500">{error}</div>
+            ) : filteredPatients.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">No hay estudios para hoy</div>
             ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID Paciente</TableHead>
-                      <TableHead>N° Acceso</TableHead>
-                      <TableHead>Paciente</TableHead>
-                      <TableHead>Edad</TableHead>
-                      <TableHead>Estudio</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead>Descargar</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID Paciente</TableHead>
+                    <TableHead>N° Acceso</TableHead>
+                    <TableHead>Paciente</TableHead>
+                    <TableHead>Edad</TableHead>
+                    <TableHead>Estudio</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Descargar</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPatients.map((patient) => (
+                    <TableRow key={`${patient.id}-${patient.orthancStudyId}`}>
+                      <TableCell>{patient.id}</TableCell>
+                      <TableCell>{patient.AccessionNumber}</TableCell>
+                      <TableCell>{patient.name}</TableCell>
+                      <TableCell>{patient.age} años</TableCell>
+                      <TableCell>{patient.study}</TableCell>
+                      <TableCell>{patient.studyDate}</TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => patient.orthancStudyId && handleDownload(patient.orthancStudyId, patient.id)}
+                          disabled={!!downloading && downloading === patient.orthancStudyId}
+                        >
+                          {downloading === patient.orthancStudyId ? (
+                            "Descargando..."
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPatients.map((patient) => (
-                      <TableRow key={`${patient.id}-${patient.orthancStudyId}`}>
-                        <TableCell>{patient.id}</TableCell>
-                        <TableCell>{patient.AccessionNumber}</TableCell>
-                        <TableCell>{formatPatientName(patient.name)}</TableCell>
-                        <TableCell>{patient.age} años</TableCell>
-                        <TableCell>{patient.study}</TableCell>
-                        <TableCell>{patient.studyDate}</TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => patient.orthancStudyId && handleDownload(patient.orthancStudyId, patient.id)}
-                            disabled={!!downloading && downloading === patient.orthancStudyId}
-                          >
-                            {downloading === patient.orthancStudyId ? (
-                              "Descargando..."
-                            ) : (
-                              <Download className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
