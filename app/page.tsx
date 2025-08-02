@@ -13,7 +13,7 @@ interface PatientStudy {
   age: number;
   study: string;
   studyDate: string;
-  site: string;
+  AccessionNumber: string;
   orthancStudyId?: string;
 }
 
@@ -80,12 +80,17 @@ export default function RadiologyPatients() {
       setDownloading(null)
     }
   }
+  function formatPatientName(dicomName: string): string {
+  if (!dicomName) return '';
+  const [lastName, firstName, middleName] = dicomName.split('^');
+  return [firstName, middleName, lastName].filter(Boolean).join(' ');
+}
 
   const filteredPatients = patients.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.study.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.site.toLowerCase().includes(searchTerm.toLowerCase())
+    p.AccessionNumber.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
@@ -133,11 +138,11 @@ export default function RadiologyPatients() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID Paciente</TableHead>
+                      <TableHead>N° Acceso</TableHead>
                       <TableHead>Paciente</TableHead>
                       <TableHead>Edad</TableHead>
                       <TableHead>Estudio</TableHead>
                       <TableHead>Fecha</TableHead>
-                      <TableHead>Sitio</TableHead>
                       <TableHead>Descargar</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -145,11 +150,11 @@ export default function RadiologyPatients() {
                     {filteredPatients.map((patient) => (
                       <TableRow key={`${patient.id}-${patient.orthancStudyId}`}>
                         <TableCell>{patient.id}</TableCell>
-                        <TableCell>{patient.name}</TableCell>
+                        <TableCell>{patient.AccessionNumber}</TableCell>
+                        <TableCell>{formatPatientName(patient.name)}</TableCell>
                         <TableCell>{patient.age} años</TableCell>
                         <TableCell>{patient.study}</TableCell>
                         <TableCell>{patient.studyDate}</TableCell>
-                        <TableCell>{patient.site}</TableCell>
                         <TableCell>
                           <Button
                             size="sm"

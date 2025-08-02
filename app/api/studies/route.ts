@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
           age: calculateAge(study.PatientMainDicomTags.PatientBirthDate || ""),
           study: study.MainDicomTags.StudyDescription || "Estudio no especificado",
           studyDate: formatDate(study.MainDicomTags.StudyDate || ""),
-          site: study.MainDicomTags.InstitutionName || "Área no especificada",
+          AccessionNumber: study.MainDicomTags.AccessionNumber || " No especificada",
           orthancStudyId: study.ID
         })
       } catch (e) {
