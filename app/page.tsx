@@ -12,14 +12,15 @@ interface PatientStudy {
   name: string;
   age: number;
   study: string;
-  studyDate: string; // Formato DD/MM/YYYY
+  studyDate: string;
   AccessionNumber: string;
   orthancStudyId?: string;
 }
 
 export default function RadiologyPatients() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [patients, setPatients] = useState<PatientStudy[]>([])
+  const [allPatients, setAllPatients] = useState<PatientStudy[]>([])
+  const [displayedPatients, setDisplayedPatients] = useState<PatientStudy[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
@@ -37,19 +38,19 @@ export default function RadiologyPatients() {
           return
         }
 
-        // Obtener fecha actual en formato DD/MM/YYYY
+        setAllPatients(data)
+
         const today = new Date()
         const day = String(today.getDate()).padStart(2, '0')
         const month = String(today.getMonth() + 1).padStart(2, '0')
         const year = today.getFullYear()
         const todayFormatted = `${day}/${month}/${year}`
 
-        // Filtrar solo estudios de hoy (comparando con DD/MM/YYYY)
         const todayStudies = data.filter((patient: PatientStudy) => 
           patient.studyDate === todayFormatted
         )
 
-        setPatients(todayStudies)
+        setDisplayedPatients(todayStudies)
       } catch (err) {
         setError("Error al conectar con el servidor")
         console.error("fetchPatients error:", err)
@@ -60,6 +61,42 @@ export default function RadiologyPatients() {
 
     fetchPatients()
   }, [])
+
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = allPatients.filter(p =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.study.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.AccessionNumber.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      setDisplayedPatients(filtered)
+    } else {
+      const today = new Date()
+      const day = String(today.getDate()).padStart(2, '0')
+      const month = String(today.getMonth() + 1).padStart(2, '0')
+      const year = today.getFullYear()
+      const todayFormatted = `${day}/${month}/${year}`
+
+      const todayStudies = allPatients.filter((patient: PatientStudy) => 
+        patient.studyDate === todayFormatted
+      )
+      setDisplayedPatients(todayStudies)
+    }
+  }, [searchTerm, allPatients])
+
+  const formatPatientName = (dicomName: string): string => {
+    if (!dicomName) return '';
+    const parts = dicomName.split('^');
+    if (parts.length >= 2) {
+      const [lastName, firstName, middleName, ...others] = parts;
+      const formattedName = [firstName, middleName, ...others, lastName]
+        .filter(part => part && part.trim() !== '')
+        .join(' ');
+      return formattedName;
+    }
+    return dicomName;
+  }
 
   const handleDownload = async (studyId: string, patientId: string) => {
     try {
@@ -93,14 +130,6 @@ export default function RadiologyPatients() {
     }
   }
 
-  const filteredPatients = patients.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.study.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.AccessionNumber.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  // Función para formatear la fecha de hoy en español
   const formatTodayDate = () => {
     const options: Intl.DateTimeFormatOptions = { 
       weekday: 'long', 
@@ -144,8 +173,10 @@ export default function RadiologyPatients() {
               <div className="text-center py-8 text-gray-500">Cargando estudios...</div>
             ) : error ? (
               <div className="text-center py-8 text-red-500">{error}</div>
-            ) : filteredPatients.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">No hay estudios para hoy</div>
+            ) : displayedPatients.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                {searchTerm ? "No se encontraron resultados" : "No hay estudios para hoy"}
+              </div>
             ) : (
               <Table>
                 <TableHeader>
@@ -160,11 +191,11 @@ export default function RadiologyPatients() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPatients.map((patient) => (
+                  {displayedPatients.map((patient) => (
                     <TableRow key={`${patient.id}-${patient.orthancStudyId}`}>
                       <TableCell>{patient.id}</TableCell>
                       <TableCell>{patient.AccessionNumber}</TableCell>
-                      <TableCell>{patient.name}</TableCell>
+                      <TableCell>{formatPatientName(patient.name)}</TableCell>
                       <TableCell>{patient.age} años</TableCell>
                       <TableCell>{patient.study}</TableCell>
                       <TableCell>{patient.studyDate}</TableCell>
